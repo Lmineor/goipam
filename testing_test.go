@@ -1,90 +1,82 @@
 package ipam
+
+import (
+	"fmt"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"os"
+	"testing"
+)
+
+func TestMain(m *testing.M) {
+	os.Exit(m.Run())
+}
+
+func getBackend() *gorm.DB {
+	dbName := "test"
+	db := gormMysql(dbName)
+	RegisterTables(db)
+	return db
+}
+
+// RegisterTables register table to mysql if not exist
+func RegisterTables(db *gorm.DB) {
+	db.Exec("DROP TABLE namespaces")
+	db.Exec("DROP TABLE prefixes")
+	err := db.AutoMigrate(
+		&IPStorage{},
+		&Namespace{},
+		&Prefix{},
+	)
+	if err != nil {
+		fmt.Printf("register table failed %s\n", err)
+	}
+}
+
+func gormMysql(dbName string) *gorm.DB {
+	username := "root"
+	password := "123456"
+	path := "127.0.0.1"
+	port := "3306"
+	config := "charset=utf8&parseTime=True&loc=Local"
+	maxIdleConns := 10
+	maxOpenConns := 100
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?%s", username, password, path, port, dbName, config)
+	mysqlConfig := mysql.Config{
+		DSN:                       dsn,   // DSN data source name
+		DefaultStringSize:         191,   // string 类型字段的默认长度
+		SkipInitializeWithVersion: false, // 根据版本自动配置
+	}
+	if db, err := gorm.Open(mysql.New(mysqlConfig)); err != nil {
+		return nil
+	} else {
+		sqlDB, _ := db.DB()
+		sqlDB.SetMaxIdleConns(maxIdleConns)
+		sqlDB.SetMaxOpenConns(maxOpenConns)
+		return db
+	}
+}
+
 //
-//import (
-//	"context"
-//	"fmt"
-//	"os"
-//	"sync"
-//	"testing"
-//
-//	"github.com/testcontainers/testcontainers-go"
-//	"github.com/testcontainers/testcontainers-go/wait"
-//	"go.mongodb.org/mongo-driver/mongo/options"
-//)
-//
-//var (
-//	pgOnce           sync.Once
-//	pgContainer      testcontainers.Container
-//	pgVersion        string
-//	crOnce           sync.Once
-//	crContainer      testcontainers.Container
-//	cockroachVersion string
-//	redisOnce        sync.Once
-//	redisContainer   testcontainers.Container
-//	redisVersion     string
-//	keyDBOnce        sync.Once
-//	keyDBVersion     string
-//	keyDBContainer   testcontainers.Container
-//	etcdContainer    testcontainers.Container
-//	etcdVersion      string
-//	etcdOnce         sync.Once
-//	mdbOnce          sync.Once
-//	mdbContainer     testcontainers.Container
-//	mdbVersion       string
-//
-//	backend string
-//)
-//
-//func TestMain(m *testing.M) {
-//	// call flag.Parse() here if TestMain uses flags
-//	pgVersion = os.Getenv("PG_VERSION")
-//	if pgVersion == "" {
-//		pgVersion = "15-alpine"
-//	}
-//	cockroachVersion = os.Getenv("COCKROACH_VERSION")
-//	if cockroachVersion == "" {
-//		cockroachVersion = "latest-v23.1"
-//	}
-//	redisVersion = os.Getenv("REDIS_VERSION")
-//	if redisVersion == "" {
-//		redisVersion = "7.0-alpine"
-//	}
-//	keyDBVersion = os.Getenv("KEYDB_VERSION")
-//	if keyDBVersion == "" {
-//		keyDBVersion = "latest"
-//	}
-//	etcdVersion = os.Getenv("ETCD_VERSION")
-//	if etcdVersion == "" {
-//		etcdVersion = "v3.5.9"
-//	}
-//	mdbVersion = os.Getenv("MONGODB_VERSION")
-//	if mdbVersion == "" {
-//		mdbVersion = "6.0.5-jammy"
-//	}
-//	backend = os.Getenv("BACKEND")
-//	if backend == "" {
-//		fmt.Printf("Using postgres:%s cockroach:%s redis:%s keydb:%s etcd:%s mongodb:%s\n", pgVersion, cockroachVersion, redisVersion, keyDBVersion, etcdVersion, mdbVersion)
-//	} else {
-//		fmt.Printf("only test %s\n", backend)
-//	}
-//	os.Exit(m.Run())
-//}
-//
-//func startPostgres() (container testcontainers.Container, dn *sql, err error) {
+//func startMariadb() (container testcontainers.Container, db *gorm.DB, err error) {
 //	ctx := context.Background()
-//	pgOnce.Do(func() {
+//	mariadbOnce.Do(func() {
 //		var err error
 //		req := testcontainers.ContainerRequest{
-//			Image:        "postgres:" + pgVersion,
-//			ExposedPorts: []string{"5432/tcp"},
-//			Env:          map[string]string{"POSTGRES_PASSWORD": "password"},
+//			Image:        "mariadb:" + mariadbVersion,
+//			ExposedPorts: []string{"3306/tcp"},
+//			Env: map[string]string{
+//				"MYSQL_ROOT_PASSWORD": "123456",
+//				"MYSQL_CHARSET":       "utf8mb4",
+//				"MYSQL_COLLATION":     "utf8mb4_general_ci",
+//				"PATH":                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
 //			WaitingFor: wait.ForAll(
 //				wait.ForLog("database system is ready to accept connections"),
-//				wait.ForListeningPort("5432/tcp"),
+//				wait.ForListeningPort("3307/tcp"),
 //			),
-//			Cmd: []string{"postgres", "-c", "max_connections=200"},
+//			Cmd: []string{"mysqld"},
 //		}
-//		pgContainer, err = testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+//		mariadbContainer, err = testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 //			ContainerRequest: req,
 //			Started:          true,
 //		})
@@ -92,19 +84,20 @@ package ipam
 //			panic(err.Error())
 //		}
 //	})
-//	ip, err := pgContainer.Host(ctx)
+//	ip, err := mariadbContainer.Host(ctx)
 //	if err != nil {
-//		return pgContainer, nil, err
+//		return mariadbContainer, nil, err
 //	}
-//	port, err := pgContainer.MappedPort(ctx, "5432")
+//	port, err := mariadbContainer.MappedPort(ctx, "3307/tcp")
 //	if err != nil {
-//		return pgContainer, nil, err
+//		return mariadbContainer, nil, err
 //	}
-//	dbname := "postgres"
-//	db, err := newPostgres(ip, port.Port(), "postgres", "password", dbname, SSLModeDisable)
+//	dbName := "test"
+//	db = gormMysql(dbName)
 //
-//	return pgContainer, db, err
+//	return mariadbContainer, db, err
 //}
+
 //
 //func startCockroach() (container testcontainers.Container, dn *sql, err error) {
 //	ctx := context.Background()
@@ -532,6 +525,7 @@ package ipam
 //		})
 //	}
 //}
+
 //
 //type provide func() Storage
 //type providesql func() *sql

@@ -17,14 +17,14 @@ import (
 // Prefix is a expression of a ip with length and forms a classless network.
 // nolint:musttag
 type Prefix struct {
-	Cidr                   string          // The Cidr of this prefix
-	ParentCidr             string          // if this prefix is a child this is a pointer back
+	Cidr                   string          `gorm:"primaryKey;uniqueIndex:cidr_parent_cidr_namespace_idx"` // The Cidr of this prefix
+	ParentCidr             string          `gorm:"uniqueIndex:cidr_parent_cidr_namespace_idx"`            // if this prefix is a child this is a pointer back
 	isParent               bool            // if this Prefix has child prefixes, this is set to true
 	availableChildPrefixes map[string]bool // available child prefixes of this prefix
 	// TODO remove this in the next release
 	childPrefixLength int    // the length of the child prefixes
 	version           int64  // version is used for optimistic locking
-	Namespace         string // the namespace of this prefix
+	Namespace         string `gorm:"uniqueIndex:cidr_parent_cidr_namespace_idx"` // the namespace of this prefix
 }
 
 type Prefixes []Prefix
@@ -141,7 +141,7 @@ func (i *ipamer) DeletePrefix(ctx context.Context, cidr string) (*Prefix, error)
 	if p == nil {
 		return nil, fmt.Errorf("%w: delete prefix:%s", ErrNotFound, cidr)
 	}
-	ips, _ := i.storage.AllocatedIPS(ctx,*p)
+	ips, _ := i.storage.AllocatedIPS(ctx, *p)
 	if len(ips) > 0 {
 		return nil, fmt.Errorf("prefix %s has ips, delete prefix not possible", p.Cidr)
 	}
@@ -195,7 +195,7 @@ func (i *ipamer) acquireChildPrefixInternal(ctx context.Context, namespace, pare
 	if ipPrefix.Bits() >= length {
 		return nil, fmt.Errorf("given length:%d must be greater than prefix length:%d", length, ipPrefix.Bits())
 	}
-	allocatedIPS, _ := i.storage.AllocatedIPS(ctx,*parent)
+	allocatedIPS, _ := i.storage.AllocatedIPS(ctx, *parent)
 	if len(allocatedIPS) > 0 {
 		return nil, fmt.Errorf("prefix %s has ips, acquire child prefix not possible", parent.Cidr)
 	}
@@ -470,9 +470,8 @@ func (i *ipamer) newPrefix(cidr, parentCidr string, namespace string) (*Prefix, 
 
 func (i *ipamer) Dump(ctx context.Context) (Prefixes, error) {
 	// FIXME must dump all namespaces
-	return  i.storage.ReadAllPrefixes(ctx)
+	return i.storage.ReadAllPrefixes(ctx)
 }
-
 
 func (i *ipamer) Load(ctx context.Context, dump string) error {
 	// FIXME must load all namespaces
@@ -542,6 +541,10 @@ func (p *Prefix) availableips() uint64 {
 		return math.MaxInt32
 	}
 	return 1 << (ipprefix.Addr().BitLen() - ipprefix.Bits())
+}
+
+func (p *Prefix) availableChildPrefixes() []Prefix {
+
 }
 
 // availablePrefixes will return the amount of prefixes allocatable and the amount of smallest 2 bit prefixes

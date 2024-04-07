@@ -7,6 +7,8 @@ type Storage interface {
 	Name() string
 	CreatePrefix(ctx context.Context, prefix Prefix) (Prefix, error)
 	ReadPrefix(ctx context.Context, prefix string) (Prefix, error)
+	ReadPrefixByID(ctx context.Context, id uint) (Prefix, error)
+	ReadAllChildPrefixByParentID(ctx context.Context, id uint) (Prefixes, error)
 	DeleteAllPrefixes(ctx context.Context) error
 	ReadAllPrefixes(ctx context.Context) (Prefixes, error)
 	ReadAllPrefixCidrs(ctx context.Context) ([]string, error)
@@ -17,6 +19,6 @@ type Storage interface {
 	DeleteNamespace(ctx context.Context, namespace string) error
 	PutIPAddress(ctx context.Context, prefix Prefix, ip string) error
 	DeleteIPAddress(ctx context.Context, prefix Prefix, ip string) error
-	IPAllocated(ctx context.Context,prefix Prefix, ip string) bool
-	AllocatedIPS(ctx context.Context,prefix Prefix)([]IPStorage, error)
+	IPAllocated(ctx context.Context, prefix Prefix, ip string) bool
+	AllocatedIPS(ctx context.Context, prefix Prefix) ([]IPStorage, error)
 }

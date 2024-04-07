@@ -1,4 +1,5 @@
 package ipam
+
 //
 //import (
 //	"context"
@@ -1331,9 +1332,9 @@ package ipam
 //		Cidr:                   "4.1.1.0/24",
 //		ParentCidr:             "4.1.0.0/16",
 //		availableChildPrefixes: map[string]bool{},
-//		isParent:               true,
+//		IsParent:               true,
 //		ips:                    map[string]bool{},
-//		version:                2,
+//		Version:                2,
 //	}
 //
 //	p1.availableChildPrefixes["4.1.2.0/24"] = true
@@ -1706,7 +1707,7 @@ package ipam
 //		t.Run(tc.name, func(t *testing.T) {
 //			prefix := &Prefix{
 //				Cidr:                   tc.cidr,
-//				isParent:               false,
+//				IsParent:               false,
 //				availableChildPrefixes: make(map[string]bool),
 //			}
 //

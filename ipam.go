@@ -19,13 +19,13 @@ type Ipamer interface {
 	// DeletePrefix delete a Prefix from a string notation.
 	// If the Prefix is not found an NotFoundError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	DeletePrefix(ctx context.Context, cidr string) (*Prefix, error)
+	DeletePrefix(ctx context.Context, id uint) (*Prefix, error)
 	// AcquireChildPrefix will return a Prefix with a smaller length from the given Prefix.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	AcquireChildPrefix(ctx context.Context, parentCidr string, length uint8) (*Prefix, error)
+	AcquireChildPrefix(ctx context.Context, parentID uint, length uint8) (*Prefix, error)
 	// AcquireSpecificChildPrefix will return a Prefix with a smaller length from the given Prefix.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	AcquireSpecificChildPrefix(ctx context.Context, parentCidr, childCidr string) (*Prefix, error)
+	AcquireSpecificChildPrefix(ctx context.Context, parentID uint, childCidr string) (*Prefix, error)
 	// ReleaseChildPrefix will mark this child Prefix as available again.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	ReleaseChildPrefix(ctx context.Context, child *Prefix) error
@@ -76,10 +76,10 @@ type ipamer struct {
 }
 
 // New returns a Ipamer with in memory storage for networks, prefixes and ips.
-func New(ctx context.Context) Ipamer {
-	storage := NewMemory(ctx)
-	return &ipamer{storage: storage}
-}
+//func New(ctx context.Context) Ipamer {
+//	storage := NewMemory(ctx)
+//	return &ipamer{storage: storage}
+//}
 
 // NewWithStorage allows you to create a Ipamer instance with your Storage implementation.
 // The Storage interface must be implemented.

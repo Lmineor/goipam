@@ -219,13 +219,12 @@ func Test_ConcurrentAcquirePrefix(t *testing.T) {
 	ipamer := NewWithStorage(&g)
 
 	const parentCidr = "1.0.0.0/16"
-	_, err := ipamer.NewPrefix(ctx, parentCidr)
+	parent, err := ipamer.NewPrefix(ctx, parentCidr)
 	require.NoError(t, err)
-
 	count := 20
 	prefixes := make(chan string)
 	for i := 0; i < count; i++ {
-		go acquirePrefix(t, ctx, &g, parentCidr, prefixes)
+		go acquirePrefix(t, ctx, &g, parent.ID, prefixes)
 	}
 
 	prefixMap := make(map[string]bool)
@@ -239,14 +238,14 @@ func Test_ConcurrentAcquirePrefix(t *testing.T) {
 	}
 }
 
-func acquirePrefix(t *testing.T, ctx context.Context, g *gormImpl, cidr string, prefixes chan string) {
+func acquirePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint, prefixes chan string) {
 	require.NotNil(t, g)
 	ipamer := NewWithStorage(g)
 
 	var cp *Prefix
 	var err error
 	for cp == nil {
-		cp, err = ipamer.AcquireChildPrefix(ctx, cidr, 26)
+		cp, err = ipamer.AcquireChildPrefix(ctx, parentID, 26)
 		if err != nil {
 			t.Error(err)
 		}

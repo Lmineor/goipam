@@ -252,6 +252,7 @@ func acquirePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint
 		time.Sleep(100 * time.Millisecond)
 	}
 	prefixes <- cp.String()
+	fmt.Println(cp.String())
 }
 
 //func Test_ConcurrentAcquireIP(t *testing.T) {

@@ -132,6 +132,8 @@ func (i *ipamer) NewPrefix(ctx context.Context, cidr string) (*Prefix, error) {
 }
 
 func (i *ipamer) DeletePrefix(ctx context.Context, id uint) (*Prefix, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	p := i.PrefixFromByID(ctx, id)
 	if p == nil {
 		return nil, fmt.Errorf("%w: delete prefix:%s", ErrNotFound, p.Cidr)
@@ -149,6 +151,8 @@ func (i *ipamer) DeletePrefix(ctx context.Context, id uint) (*Prefix, error) {
 }
 
 func (i *ipamer) AcquireChildPrefix(ctx context.Context, parentID uint, length uint8) (*Prefix, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	namespace := namespaceFromContext(ctx)
 	var prefix *Prefix
 	return prefix, retryOnOptimisticLock(func() error {
@@ -159,6 +163,8 @@ func (i *ipamer) AcquireChildPrefix(ctx context.Context, parentID uint, length u
 }
 
 func (i *ipamer) AcquireSpecificChildPrefix(ctx context.Context, parentID uint, childCidr string) (*Prefix, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	namespace := namespaceFromContext(ctx)
 	var prefix *Prefix
 	return prefix, retryOnOptimisticLock(func() error {
@@ -374,6 +380,8 @@ func (i *ipamer) acquireChildPrefixInternalByParentID(ctx context.Context, names
 //}
 
 func (i *ipamer) ReleaseChildPrefix(ctx context.Context, child *Prefix) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	namespace := namespaceFromContext(ctx)
 	return retryOnOptimisticLock(func() error {
 		return i.releaseChildPrefixInternal(ctx, namespace, child)
@@ -411,7 +419,6 @@ func (i *ipamer) releaseChildPrefixInternal(ctx context.Context, namespace strin
 }
 
 func (i *ipamer) PrefixFromByID(ctx context.Context, id uint) *Prefix {
-
 	prefix, err := i.storage.ReadPrefixByID(ctx, id)
 	if err != nil {
 		return nil
@@ -432,6 +439,8 @@ func (i *ipamer) PrefixFrom(ctx context.Context, cidr string) *Prefix {
 }
 
 func (i *ipamer) AcquireSpecificIP(ctx context.Context, prefixCidr, specificIP string) (*IP, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	namespace := namespaceFromContext(ctx)
 	var ip *IP
 	return ip, retryOnOptimisticLock(func() error {
@@ -502,6 +511,8 @@ func (i *ipamer) AcquireIP(ctx context.Context, prefixCidr string) (*IP, error) 
 }
 
 func (i *ipamer) ReleaseIP(ctx context.Context, ip *IP) (*Prefix, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	err := i.ReleaseIPFromPrefix(ctx, ip.ParentPrefix, ip.IP.String())
 	prefix := i.PrefixFrom(ctx, ip.ParentPrefix)
 	return prefix, err
@@ -594,21 +605,29 @@ func (i *ipamer) ReadAllPrefixCidrs(ctx context.Context) ([]string, error) {
 
 // ReadAllNamespacedPrefixCidrs retrieves all existing Prefix CIDRs from the underlying storage
 func (i *ipamer) ReadAllNamespacedPrefixCidrs(ctx context.Context) ([]string, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	return i.storage.ReadAllPrefixCidrs(ctx)
 }
 
 // CreateNamespace creates a namespace with the given name.
 func (i *ipamer) CreateNamespace(ctx context.Context, namespace string) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	return i.storage.CreateNamespace(ctx, namespace)
 }
 
 // ListNamespaces returns a list of all namespaces.
 func (i *ipamer) ListNamespaces(ctx context.Context) ([]string, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	return i.storage.ListNamespaces(ctx)
 }
 
 // DeleteNamespace deletes a namespace.
 func (i *ipamer) DeleteNamespace(ctx context.Context, namespace string) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	prefixes, err := i.storage.ReadAllPrefixes(ctx)
 	if err != nil {
 		return err

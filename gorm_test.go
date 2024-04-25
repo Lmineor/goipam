@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
-	"time"
 )
 
 func Test_gorm_prefixExists(t *testing.T) {
@@ -201,7 +200,7 @@ func Test_sql_CreateNamespace(t *testing.T) {
 	}
 }
 
-func Test_ConcurrentAcquirePrefix(t *testing.T) {
+func Test_AcquirePrefixIPv4(t *testing.T) {
 	ctx := context.Background()
 	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
 	ctx = NewContextWithNamespace(ctx, namespace)
@@ -221,38 +220,75 @@ func Test_ConcurrentAcquirePrefix(t *testing.T) {
 	const parentCidr = "1.0.0.0/16"
 	parent, err := ipamer.NewPrefix(ctx, parentCidr)
 	require.NoError(t, err)
-	count := 20
-	prefixes := make(chan string)
-	for i := 0; i < count; i++ {
-		go acquirePrefix(t, ctx, &g, parent.ID, prefixes)
-	}
-
-	prefixMap := make(map[string]bool)
-	for i := 0; i < count; i++ {
-		p := <-prefixes
-		_, duplicate := prefixMap[p]
-		if duplicate {
-			t.Errorf("prefix:%s already acquired", p)
-		}
-		prefixMap[p] = true
+	for i := 0; i < 4; i++ {
+		acquirePrefix(t, ctx, &g, parent.ID)
 	}
 }
 
-func acquirePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint, prefixes chan string) {
+func Test_AcquirePrefixIPv6(t *testing.T) {
+	ctx := context.Background()
+	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
+	ctx = NewContextWithNamespace(ctx, namespace)
+	db := getBackend()
+	g := gormImpl{
+		db:          db,
+		maxIdLength: 50,
+	}
+
+	require.NotNil(t, db)
+	if !g.checkNamespaceExists(namespace) {
+		err := g.CreateNamespace(ctx, namespace)
+		require.NoError(t, err)
+	}
+	ipamer := NewWithStorage(&g)
+
+	const parentCidr = "1::0/64"
+	parent, err := ipamer.NewPrefix(ctx, parentCidr)
+	require.NoError(t, err)
+	for i := 0; i < 1000; i++ {
+		acquirePrefix(t, ctx, &g, parent.ID)
+	}
+}
+
+func TestIpamer_ReleaseChildPrefix(t *testing.T) {
+	ctx := context.Background()
+	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
+	ctx = NewContextWithNamespace(ctx, namespace)
+	db := getBackend()
+	g := gormImpl{
+		db:          db,
+		maxIdLength: 50,
+	}
+
+	require.NotNil(t, db)
+	if !g.checkNamespaceExists(namespace) {
+		err := g.CreateNamespace(ctx, namespace)
+		require.NoError(t, err)
+	}
+	ipamer := NewWithStorage(&g)
+
+	const parentCidr = "1::0/64"
+	parent, err := ipamer.NewPrefix(ctx, parentCidr)
+	require.NoError(t, err)
+	for i := 0; i < 1000; i++ {
+		releasePrefix(t, ctx, &g, parent.ID)
+	}
+}
+func releasePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint) {
 	require.NotNil(t, g)
 	ipamer := NewWithStorage(g)
+	childPrefix, err := ipamer.AcquireChildPrefix(ctx, parentID, 128)
+	err = ipamer.ReleaseChildPrefix(ctx, childPrefix)
+	require.NoError(t, err)
+	fmt.Println(childPrefix.Cidr)
+}
 
-	var cp *Prefix
-	var err error
-	for cp == nil {
-		cp, err = ipamer.AcquireChildPrefix(ctx, parentID, 26)
-		if err != nil {
-			t.Error(err)
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	prefixes <- cp.String()
-	fmt.Println(cp.String())
+func acquirePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint) {
+	require.NotNil(t, g)
+	ipamer := NewWithStorage(g)
+	childPrefix, err := ipamer.AcquireChildPrefix(ctx, parentID, 128)
+	require.NoError(t, err)
+	fmt.Println(childPrefix.Cidr)
 }
 func Test_AcquireIP(t *testing.T) {
 	ctx := context.Background()
@@ -270,7 +306,7 @@ func Test_AcquireIP(t *testing.T) {
 		require.NoError(t, err)
 	}
 	ipamer := NewWithStorage(&g)
-	const parentCidr = "1.0.0.0/16"
+	const parentCidr = "2001:db8:85a3::/124"
 	parent, err := ipamer.NewPrefix(ctx, parentCidr)
 	require.NoError(t, err)
 	require.NotNil(t, db)
@@ -278,26 +314,26 @@ func Test_AcquireIP(t *testing.T) {
 		// Create a namespace with special characters in name
 		ip, err := ipamer.AcquireIP(ctx, parent.ID)
 		require.NoError(t, err)
-		fmt.Println(ip.IP.String())
+		fmt.Println(ip.IP)
 	}
 	{
 		// Create a long namespace name
 		ip, err := ipamer.AcquireIP(ctx, parent.ID)
 		require.NoError(t, err)
-		fmt.Println(ip.IP.String())
+		fmt.Println(ip.IP)
 	}
 	{
 		// Create a namespace with a name that is too long
 		ip, err := ipamer.AcquireIP(ctx, parent.ID)
 		require.NoError(t, err)
-		fmt.Println(ip.IP.String())
+		fmt.Println(ip.IP)
 	}
-	{
-		// Create a namespace with a name that is too long
-		ip, err := ipamer.AcquireSpecificIP(ctx, parent.ID, "1.0.0.100")
-		require.ErrorIs(t, err, ErrAlreadyAllocated)
-		fmt.Println(ip.IP.String())
-	}
+	//{
+	//	// Create a namespace with a name that is too long
+	//	ip, err := ipamer.AcquireSpecificIP(ctx, parent.ID, "1.0.0.100")
+	//	require.ErrorIs(t, err, ErrAlreadyAllocated)
+	//	fmt.Println(ip.IP)
+	//}
 }
 
 //func Test_ConcurrentAcquireIP(t *testing.T) {

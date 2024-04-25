@@ -36,14 +36,14 @@ type Ipamer interface {
 	// If specificIP is empty, the next free IP is returned.
 	// If there is no free IP an NoIPAvailableError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	AcquireSpecificIP(ctx context.Context, cidrID uint, specificIP string) (*IP, error)
+	AcquireSpecificIP(ctx context.Context, cidrID uint, specificIP string) (*IPStorage, error)
 	// AcquireIP will return the next unused IP from this Prefix.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	AcquireIP(ctx context.Context, cidrID uint) (*IP, error)
+	AcquireIP(ctx context.Context, cidrID uint) (*IPStorage, error)
 	// ReleaseIP will release the given IP for later usage and returns the updated Prefix.
 	// If the IP is not found an NotFoundError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	ReleaseIP(ctx context.Context, ip *IP) (*Prefix, error)
+	ReleaseIP(ctx context.Context, ip *IPStorage) (*Prefix, error)
 	// ReleaseIPFromPrefix will release the given IP for later usage.
 	// If the Prefix or the IP is not found an NotFoundError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
@@ -74,12 +74,6 @@ type ipamer struct {
 	mu      sync.Mutex
 	storage Storage
 }
-
-// New returns a Ipamer with in memory storage for networks, prefixes and ips.
-//func New(ctx context.Context) Ipamer {
-//	storage := NewMemory(ctx)
-//	return &ipamer{storage: storage}
-//}
 
 // NewWithStorage allows you to create a Ipamer instance with your Storage implementation.
 // The Storage interface must be implemented.

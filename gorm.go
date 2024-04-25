@@ -48,7 +48,7 @@ func (g *gormImpl) CreatePrefix(ctx context.Context, prefix Prefix) (Prefix, err
 	err := g.db.Create(&prefix).Error
 	return *prefix.deepCopy(), err
 }
-func (g *gormImpl) ReadPrefixByID(ctx context.Context, id uint) (Prefix, error) {
+func (g *gormImpl) ReadPrefixByID(_ context.Context, id uint) (Prefix, error) {
 	var p Prefix
 	err := g.db.Where("id = ?", id).First(&p).Error
 	if err != nil {
@@ -155,7 +155,7 @@ func (g *gormImpl) Name() string {
 	return "gorm"
 }
 
-func (g *gormImpl) CreateNamespace(ctx context.Context, namespace string) error {
+func (g *gormImpl) CreateNamespace(_ context.Context, namespace string) error {
 	if len(namespace) > g.maxIdLength {
 		return ErrNameTooLong
 	}
@@ -165,13 +165,13 @@ func (g *gormImpl) CreateNamespace(ctx context.Context, namespace string) error 
 	return g.db.Create(&newNamespace).Error
 }
 
-func (g *gormImpl) ListNamespaces(ctx context.Context) ([]string, error) {
+func (g *gormImpl) ListNamespaces(_ context.Context) ([]string, error) {
 	var result []string
 	err := g.db.Model(&Namespace{}).Pluck("namespace", &result).Error
 	return result, err
 }
 
-func (g *gormImpl) DeleteNamespace(ctx context.Context, namespace string) error {
+func (g *gormImpl) DeleteNamespace(_ context.Context, namespace string) error {
 	if !g.checkNamespaceExists(namespace) {
 		return ErrNamespaceDoesNotExist
 	}
@@ -187,7 +187,7 @@ func (g *gormImpl) DeleteNamespace(ctx context.Context, namespace string) error 
 	})
 }
 
-func (g *gormImpl) DeleteIPAddress(ctx context.Context, prefix Prefix, ip string) error {
+func (g *gormImpl) DeleteIPAddress(_ context.Context, prefix Prefix, ip string) error {
 	return g.db.Delete(IPStorage{}, "ip = ? and parent_prefix = ? AND namespace = ?", ip, prefix.Cidr, prefix.Namespace).Error
 }
 
@@ -216,8 +216,8 @@ func (g *gormImpl) IPAllocated(ctx context.Context, prefix Prefix, ip string) bo
 func (g *gormImpl) AllocatedIPS(ctx context.Context, prefix Prefix) ([]IPStorage, error) {
 	namespace := namespaceFromContext(ctx)
 	var ips []IPStorage
-	if err := g.db.Find(&ips, "cidr = ? AND namespace = ?", prefix.Cidr, namespace).Error; err != nil {
-		return nil, err
+	if err := g.db.Find(&ips, "parent_prefix = ? AND namespace = ?", prefix.Cidr, namespace).Error; err != nil {
+		return ips, err
 	}
 	return ips, nil
 }

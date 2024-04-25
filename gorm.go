@@ -130,7 +130,6 @@ func (g *gormImpl) UpdatePrefix(ctx context.Context, prefix Prefix) (Prefix, err
 	if !g.checkNamespaceExists(namespace) {
 		return Prefix{}, ErrNamespaceDoesNotExist
 	}
-
 	oldVersion := prefix.Version
 	prefix.Version = oldVersion + 1
 	err := g.db.Save(&prefix).Error

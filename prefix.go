@@ -39,6 +39,7 @@ func (p Prefix) deepCopy() *Prefix {
 		IsParent:          p.IsParent,
 		childPrefixLength: p.childPrefixLength,
 		Version:           p.Version,
+		Namespace:         p.Namespace,
 	}
 }
 
@@ -438,14 +439,13 @@ func (i *ipamer) PrefixFrom(ctx context.Context, cidr string) *Prefix {
 	return &prefix
 }
 
-func (i *ipamer) AcquireSpecificIP(ctx context.Context, prefixCidr, specificIP string) (*IP, error) {
+func (i *ipamer) AcquireSpecificIP(ctx context.Context, cidrID uint, specificIP string) (*IP, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	namespace := namespaceFromContext(ctx)
 	var ip *IP
 	return ip, retryOnOptimisticLock(func() error {
 		var err error
-		ip, err = i.acquireSpecificIPInternal(ctx, namespace, prefixCidr, specificIP)
+		ip, err = i.acquireSpecificIPInternal(ctx, cidrID, specificIP)
 		return err
 	})
 }
@@ -454,15 +454,16 @@ func (i *ipamer) AcquireSpecificIP(ctx context.Context, prefixCidr, specificIP s
 // If specificIP is empty, the next free IP is returned.
 // If there is no free IP an NoIPAvailableError is returned.
 // If the Prefix is not found an NotFoundError is returned.
-func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, namespace, prefixCidr, specificIP string) (*IP, error) {
-	prefix := i.PrefixFrom(ctx, prefixCidr)
-	if prefix == nil {
-		return nil, fmt.Errorf("%w: unable to find prefix for cidr:%s", ErrNotFound, prefixCidr)
+func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, cidrID uint, specificIP string) (*IP, error) {
+	parent := i.PrefixFromByID(ctx, cidrID)
+	fmt.Println(parent.Namespace)
+	if parent == nil {
+		return nil, fmt.Errorf("%w: unable to find prefix for cidr id :%d", ErrNotFound, cidrID)
 	}
-	if prefix.IsParent {
-		return nil, fmt.Errorf("prefix %s has childprefixes, acquire ip not possible", prefix.Cidr)
+	if parent.IsParent {
+		return nil, fmt.Errorf("prefix %s has childprefixes, acquire ip not possible", parent.Cidr)
 	}
-	ipnet, err := netip.ParsePrefix(prefix.Cidr)
+	ipnet, err := netip.ParsePrefix(parent.Cidr)
 	if err != nil {
 		return nil, err
 	}
@@ -474,9 +475,9 @@ func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, namespace, prefi
 			return nil, fmt.Errorf("given ip:%s in not valid", specificIP)
 		}
 		if !ipnet.Contains(specificIPnet) {
-			return nil, fmt.Errorf("given ip:%s is not in %s", specificIP, prefixCidr)
+			return nil, fmt.Errorf("given ip:%s is not in %s", specificIP, parent.Cidr)
 		}
-		allocated := i.storage.IPAllocated(ctx, *prefix, specificIPnet.String())
+		allocated := i.storage.IPAllocated(ctx, *parent, specificIPnet.String())
 		if allocated {
 			return nil, fmt.Errorf("%w: given ip:%s is already allocated", ErrAlreadyAllocated, specificIPnet)
 		}
@@ -485,29 +486,29 @@ func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, namespace, prefi
 	iprange := netipx.RangeOfPrefix(ipnet)
 	for ip := iprange.From(); ipnet.Contains(ip); ip = ip.Next() {
 		ipstring := ip.String()
-		allocated := i.storage.IPAllocated(ctx, *prefix, ipstring)
+		allocated := i.storage.IPAllocated(ctx, *parent, ipstring)
 		if allocated {
 			continue
 		}
 		if specificIP == "" || specificIPnet.Compare(ip) == 0 {
 			acquired := &IP{
 				IP:           ip,
-				ParentPrefix: prefix.Cidr,
+				ParentPrefix: parent.Cidr,
 			}
-			_, err := i.storage.UpdatePrefix(ctx, *prefix)
-			i.storage.PutIPAddress(ctx, *prefix, ipstring)
+			_, err := i.storage.UpdatePrefix(ctx, *parent)
+			i.storage.PutIPAddress(ctx, *parent, ipstring)
 			if err != nil {
-				return nil, fmt.Errorf("unable to persist acquired ip:%v error:%w", prefix, err)
+				return nil, fmt.Errorf("unable to persist acquired ip:%v error:%w", parent.Cidr, err)
 			}
 			return acquired, nil
 		}
 	}
 
-	return nil, fmt.Errorf("%w: no more ips in prefix: %s left", ErrNoIPAvailable, prefix.Cidr)
+	return nil, fmt.Errorf("%w: no more ips in prefix: %s left", ErrNoIPAvailable, parent.Cidr)
 }
 
-func (i *ipamer) AcquireIP(ctx context.Context, prefixCidr string) (*IP, error) {
-	return i.AcquireSpecificIP(ctx, prefixCidr, "")
+func (i *ipamer) AcquireIP(ctx context.Context, cidrID uint) (*IP, error) {
+	return i.AcquireSpecificIP(ctx, cidrID, "")
 }
 
 func (i *ipamer) ReleaseIP(ctx context.Context, ip *IP) (*Prefix, error) {

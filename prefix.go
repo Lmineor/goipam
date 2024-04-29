@@ -440,7 +440,7 @@ func (i *ipamer) AcquireSpecificIP(ctx context.Context, cidrID uint, specificIP 
 	})
 }
 
-// acquireSpecificIPInternal will acquire given IP and mark this IP as used, if already in use, return nil.
+// acquireSpecificIPInternal will acquire given IP and store it to DB, if already in use, return nil.
 // If specificIP is empty, the next free IP is returned.
 // If there is no free IP an NoIPAvailableError is returned.
 // If the Prefix is not found an NotFoundError is returned.
@@ -473,10 +473,14 @@ func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, cidrID uint, spe
 	}
 
 	iprange := netipx.RangeOfPrefix(ipnet)
+	allocatedIPS, err := i.storage.AllocatedIPS(ctx, *parent)
+	allocatedIPsMap := make(map[string]struct{})
+	for _, aIP := range allocatedIPS {
+		allocatedIPsMap[aIP.IP] = struct{}{}
+	}
 	for ip := iprange.From(); ipnet.Contains(ip); ip = ip.Next() {
 		ipstring := ip.String()
-		allocated := i.storage.IPAllocated(ctx, *parent, ipstring)
-		if allocated {
+		if _, ok := allocatedIPsMap[ipstring]; ok {
 			continue
 		}
 		if specificIP == "" || specificIPnet.Compare(ip) == 0 {

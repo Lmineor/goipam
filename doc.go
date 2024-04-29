@@ -35,3 +35,5 @@ Example usage:
 	}
 */
 package ipam
+
+//TODO complete doc.go

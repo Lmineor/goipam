@@ -12,7 +12,7 @@ func Test_gorm_prefixExists(t *testing.T) {
 	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
 	ctx = NewContextWithNamespace(ctx, namespace)
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}
@@ -53,7 +53,7 @@ func Test_sql_CreatePrefix(t *testing.T) {
 	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
 	ctx = NewContextWithNamespace(ctx, namespace)
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}
@@ -92,7 +92,7 @@ func Test_sql_CreatePrefix(t *testing.T) {
 func Test_sql_ReadPrefix(t *testing.T) {
 	ctx := context.Background()
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}
@@ -128,7 +128,7 @@ func Test_sql_ReadAllPrefix(t *testing.T) {
 	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
 	ctx = NewContextWithNamespace(ctx, namespace)
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}
@@ -167,7 +167,7 @@ func Test_sql_CreateNamespace(t *testing.T) {
 	ctx := context.Background()
 	ctx = NewContextWithNamespace(ctx, "/root/")
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}
@@ -205,7 +205,7 @@ func Test_AcquirePrefixIPv4(t *testing.T) {
 	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
 	ctx = NewContextWithNamespace(ctx, namespace)
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}
@@ -230,7 +230,7 @@ func Test_AcquirePrefixIPv6(t *testing.T) {
 	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
 	ctx = NewContextWithNamespace(ctx, namespace)
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}
@@ -255,7 +255,7 @@ func TestIpamer_ReleaseChildPrefix(t *testing.T) {
 	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
 	ctx = NewContextWithNamespace(ctx, namespace)
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}
@@ -274,7 +274,7 @@ func TestIpamer_ReleaseChildPrefix(t *testing.T) {
 		releasePrefix(t, ctx, &g, parent.ID)
 	}
 }
-func releasePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint) {
+func releasePrefix(t *testing.T, ctx context.Context, g *GormImplement, parentID uint) {
 	require.NotNil(t, g)
 	ipamer := NewWithStorage(g)
 	childPrefix, err := ipamer.AcquireChildPrefix(ctx, parentID, 128)
@@ -283,7 +283,7 @@ func releasePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint
 	fmt.Println(childPrefix.Cidr)
 }
 
-func acquirePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint) {
+func acquirePrefix(t *testing.T, ctx context.Context, g *GormImplement, parentID uint) {
 	require.NotNil(t, g)
 	ipamer := NewWithStorage(g)
 	childPrefix, err := ipamer.AcquireChildPrefix(ctx, parentID, 24)
@@ -295,7 +295,7 @@ func Test_AcquireIP(t *testing.T) {
 	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
 	ctx = NewContextWithNamespace(ctx, namespace)
 	db := getBackend()
-	g := gormImpl{
+	g := GormImplement{
 		db:          db,
 		maxIdLength: 50,
 	}

@@ -6,7 +6,12 @@ import (
 	"gorm.io/gorm"
 )
 
-type GormImplement struct {
+// NewGormImpl return a implement for gorm
+func NewGormImpl(db *gorm.DB, namespaceLen int) *gormImplement {
+	return &gormImplement{db: db, maxIdLength: namespaceLen}
+}
+
+type gormImplement struct {
 	db          *gorm.DB
 	maxIdLength int
 }
@@ -15,7 +20,7 @@ type Namespace struct {
 	Namespace string `gorm:"namespace;uniqueIndex:namespace_idx"`
 }
 
-func (g *GormImplement) prefixExists(ctx context.Context, prefix Prefix) (*Prefix, bool) {
+func (g *gormImplement) prefixExists(ctx context.Context, prefix Prefix) (*Prefix, bool) {
 	p, err := g.ReadPrefix(ctx, prefix.Cidr)
 	if err != nil {
 		return nil, false
@@ -23,14 +28,14 @@ func (g *GormImplement) prefixExists(ctx context.Context, prefix Prefix) (*Prefi
 	return &p, true
 }
 
-func (g *GormImplement) checkNamespaceExists(namespace string) bool {
+func (g *gormImplement) checkNamespaceExists(namespace string) bool {
 	if err := g.db.Where("namespace = ?", namespace).First(&Namespace{}).Error; err != nil {
 		return false
 	}
 	return true
 }
 
-func (g *GormImplement) CreatePrefix(ctx context.Context, prefix Prefix) (Prefix, error) {
+func (g *gormImplement) CreatePrefix(ctx context.Context, prefix Prefix) (Prefix, error) {
 	namespace := namespaceFromContext(ctx)
 	if !g.checkNamespaceExists(namespace) {
 		return Prefix{}, ErrNamespaceDoesNotExist
@@ -48,7 +53,7 @@ func (g *GormImplement) CreatePrefix(ctx context.Context, prefix Prefix) (Prefix
 	err := g.db.Create(&prefix).Error
 	return *prefix.deepCopy(), err
 }
-func (g *GormImplement) ReadPrefixByID(_ context.Context, id uint) (Prefix, error) {
+func (g *gormImplement) ReadPrefixByID(_ context.Context, id uint) (Prefix, error) {
 	var p Prefix
 	err := g.db.Where("id = ?", id).First(&p).Error
 	if err != nil {
@@ -56,7 +61,7 @@ func (g *GormImplement) ReadPrefixByID(_ context.Context, id uint) (Prefix, erro
 	}
 	return *p.deepCopy(), nil
 }
-func (g *GormImplement) ReadAllChildPrefixByParentID(_ context.Context, id uint) (Prefixes, error) {
+func (g *gormImplement) ReadAllChildPrefixByParentID(_ context.Context, id uint) (Prefixes, error) {
 	var pixes Prefixes
 	err := g.db.Find(&pixes, "parent_id = ?", id).Error
 	if err != nil {
@@ -69,7 +74,7 @@ func (g *GormImplement) ReadAllChildPrefixByParentID(_ context.Context, id uint)
 	return ps, nil
 }
 
-func (g *GormImplement) ReadPrefix(ctx context.Context, cidr string) (Prefix, error) {
+func (g *gormImplement) ReadPrefix(ctx context.Context, cidr string) (Prefix, error) {
 	var p Prefix
 	namespace := namespaceFromContext(ctx)
 	if !g.checkNamespaceExists(namespace) {
@@ -82,7 +87,7 @@ func (g *GormImplement) ReadPrefix(ctx context.Context, cidr string) (Prefix, er
 	return *p.deepCopy(), nil
 }
 
-func (g *GormImplement) DeleteAllPrefixes(ctx context.Context) error {
+func (g *gormImplement) DeleteAllPrefixes(ctx context.Context) error {
 	namespace := namespaceFromContext(ctx)
 	if !g.checkNamespaceExists(namespace) {
 		return ErrNamespaceDoesNotExist
@@ -91,7 +96,7 @@ func (g *GormImplement) DeleteAllPrefixes(ctx context.Context) error {
 }
 
 // ReadAllPrefixes returns all known prefixes.
-func (g *GormImplement) ReadAllPrefixes(ctx context.Context) (Prefixes, error) {
+func (g *gormImplement) ReadAllPrefixes(ctx context.Context) (Prefixes, error) {
 	namespace := namespaceFromContext(ctx)
 	if !g.checkNamespaceExists(namespace) {
 		return nil, ErrNamespaceDoesNotExist
@@ -110,7 +115,7 @@ func (g *GormImplement) ReadAllPrefixes(ctx context.Context) (Prefixes, error) {
 }
 
 // ReadAllPrefixCidrs is cheaper that ReadAllPrefixes because it only returns the Cidrs.
-func (g *GormImplement) ReadAllPrefixCidrs(ctx context.Context) ([]string, error) {
+func (g *gormImplement) ReadAllPrefixCidrs(ctx context.Context) ([]string, error) {
 	namespace := namespaceFromContext(ctx)
 	if !g.checkNamespaceExists(namespace) {
 		return nil, ErrNamespaceDoesNotExist
@@ -125,7 +130,7 @@ func (g *GormImplement) ReadAllPrefixCidrs(ctx context.Context) ([]string, error
 
 // UpdatePrefix tries to update the prefix.
 // Returns OptimisticLockError if it does not succeed due to a concurrent update.
-func (g *GormImplement) UpdatePrefix(ctx context.Context, prefix Prefix) (Prefix, error) {
+func (g *gormImplement) UpdatePrefix(ctx context.Context, prefix Prefix) (Prefix, error) {
 	namespace := namespaceFromContext(ctx)
 	if !g.checkNamespaceExists(namespace) {
 		return Prefix{}, ErrNamespaceDoesNotExist
@@ -140,7 +145,7 @@ func (g *GormImplement) UpdatePrefix(ctx context.Context, prefix Prefix) (Prefix
 	return *prefix.deepCopy(), nil
 }
 
-func (g *GormImplement) DeletePrefix(ctx context.Context, prefix Prefix) (Prefix, error) {
+func (g *gormImplement) DeletePrefix(ctx context.Context, prefix Prefix) (Prefix, error) {
 	namespace := namespaceFromContext(ctx)
 	if !g.checkNamespaceExists(namespace) {
 		return Prefix{}, ErrNamespaceDoesNotExist
@@ -151,11 +156,11 @@ func (g *GormImplement) DeletePrefix(ctx context.Context, prefix Prefix) (Prefix
 	}
 	return *prefix.deepCopy(), nil
 }
-func (g *GormImplement) Name() string {
+func (g *gormImplement) Name() string {
 	return "gorm"
 }
 
-func (g *GormImplement) CreateNamespace(_ context.Context, namespace string) error {
+func (g *gormImplement) CreateNamespace(_ context.Context, namespace string) error {
 	if len(namespace) > g.maxIdLength {
 		return ErrNameTooLong
 	}
@@ -165,13 +170,13 @@ func (g *GormImplement) CreateNamespace(_ context.Context, namespace string) err
 	return g.db.Create(&newNamespace).Error
 }
 
-func (g *GormImplement) ListNamespaces(_ context.Context) ([]string, error) {
+func (g *gormImplement) ListNamespaces(_ context.Context) ([]string, error) {
 	var result []string
 	err := g.db.Model(&Namespace{}).Pluck("namespace", &result).Error
 	return result, err
 }
 
-func (g *GormImplement) DeleteNamespace(_ context.Context, namespace string) error {
+func (g *gormImplement) DeleteNamespace(_ context.Context, namespace string) error {
 	if !g.checkNamespaceExists(namespace) {
 		return ErrNamespaceDoesNotExist
 	}
@@ -187,11 +192,11 @@ func (g *GormImplement) DeleteNamespace(_ context.Context, namespace string) err
 	})
 }
 
-func (g *GormImplement) DeleteIPAddress(_ context.Context, prefix Prefix, ip string) error {
+func (g *gormImplement) DeleteIPAddress(_ context.Context, prefix Prefix, ip string) error {
 	return g.db.Delete(IPStorage{}, "ip = ? and parent_prefix = ? AND namespace = ?", ip, prefix.Cidr, prefix.Namespace).Error
 }
 
-func (g *GormImplement) PutIPAddress(ctx context.Context, prefix Prefix, ip string) error {
+func (g *gormImplement) PutIPAddress(ctx context.Context, prefix Prefix, ip string) error {
 	if g.IPAllocated(ctx, prefix, ip) {
 		// already exist
 		return fmt.Errorf("ip %s aleady exist", ip)
@@ -204,7 +209,7 @@ func (g *GormImplement) PutIPAddress(ctx context.Context, prefix Prefix, ip stri
 	return g.db.Create(&ipD).Error
 }
 
-func (g *GormImplement) IPAllocated(ctx context.Context, prefix Prefix, ip string) bool {
+func (g *gormImplement) IPAllocated(ctx context.Context, prefix Prefix, ip string) bool {
 	namespace := namespaceFromContext(ctx)
 	if err := g.db.First(&IPStorage{}, "ip = ? AND parent_prefix = ? AND namespace = ?", ip, prefix.Cidr, namespace).Error; err == nil {
 		// already exist
@@ -213,7 +218,7 @@ func (g *GormImplement) IPAllocated(ctx context.Context, prefix Prefix, ip strin
 	return false
 }
 
-func (g *GormImplement) AllocatedIPS(ctx context.Context, prefix Prefix) ([]IPStorage, error) {
+func (g *gormImplement) AllocatedIPS(ctx context.Context, prefix Prefix) ([]IPStorage, error) {
 	namespace := namespaceFromContext(ctx)
 	var ips []IPStorage
 	if err := g.db.Find(&ips, "parent_prefix = ? AND namespace = ?", prefix.Cidr, namespace).Error; err != nil {

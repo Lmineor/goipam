@@ -391,7 +391,6 @@ func (i *ipamer) releaseChildPrefixInternal(ctx context.Context, _ string, child
 	if len(ips) > 0 {
 		return fmt.Errorf("prefix %s has ips, deletion not possible", child.Cidr)
 	}
-	fmt.Printf("111111111111 %d\n", child.ID)
 	_, err := i.DeletePrefix(ctx, child.ID)
 	if err != nil {
 		return fmt.Errorf("unable to release prefix %v:%w", child, err)

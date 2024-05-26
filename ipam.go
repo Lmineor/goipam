@@ -16,14 +16,14 @@ type Ipamer interface {
 	// NewPrefix creates a new Prefix from a string notation.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	NewPrefix(ctx context.Context, cidr string) (*Prefix, error)
-	// DeletePrefix delete a Prefix from a string notation.
+	// DeletePrefix delete a Prefix from a prefix id(uint).
 	// If the Prefix is not found an NotFoundError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	DeletePrefix(ctx context.Context, id uint) (*Prefix, error)
-	// AcquireChildPrefix will return a Prefix with a smaller length from the given Prefix.
+	// AcquireChildPrefix will return a Prefix with a smaller length from the given parent prefix(id).
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	AcquireChildPrefix(ctx context.Context, parentID uint, length uint8) (*Prefix, error)
-	// AcquireSpecificChildPrefix will return a Prefix with a smaller length from the given Prefix.
+	// AcquireSpecificChildPrefix will return a Prefix with a smaller length from the given parent prefix(id).
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	AcquireSpecificChildPrefix(ctx context.Context, parentID uint, childCidr string) (*Prefix, error)
 	// ReleaseChildPrefix will mark this child Prefix as available again.

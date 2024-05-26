@@ -58,47 +58,6 @@ func gormMysql(dbName string) *gorm.DB {
 }
 
 //
-//func startMariadb() (container testcontainers.Container, db *gorm.DB, err error) {
-//	ctx := context.Background()
-//	mariadbOnce.Do(func() {
-//		var err error
-//		req := testcontainers.ContainerRequest{
-//			Image:        "mariadb:" + mariadbVersion,
-//			ExposedPorts: []string{"3306/tcp"},
-//			Env: map[string]string{
-//				"MYSQL_ROOT_PASSWORD": "123456",
-//				"MYSQL_CHARSET":       "utf8mb4",
-//				"MYSQL_COLLATION":     "utf8mb4_general_ci",
-//				"PATH":                "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"},
-//			WaitingFor: wait.ForAll(
-//				wait.ForLog("database system is ready to accept connections"),
-//				wait.ForListeningPort("3307/tcp"),
-//			),
-//			Cmd: []string{"mysqld"},
-//		}
-//		mariadbContainer, err = testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
-//			ContainerRequest: req,
-//			Started:          true,
-//		})
-//		if err != nil {
-//			panic(err.Error())
-//		}
-//	})
-//	ip, err := mariadbContainer.Host(ctx)
-//	if err != nil {
-//		return mariadbContainer, nil, err
-//	}
-//	port, err := mariadbContainer.MappedPort(ctx, "3307/tcp")
-//	if err != nil {
-//		return mariadbContainer, nil, err
-//	}
-//	dbName := "test"
-//	db = gormMysql(dbName)
-//
-//	return mariadbContainer, db, err
-//}
-
-//
 //func startCockroach() (container testcontainers.Container, dn *sql, err error) {
 //	ctx := context.Background()
 //	crOnce.Do(func() {

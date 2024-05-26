@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"math"
 	"net/netip"
 	"strings"
 
-	"github.com/avast/retry-go/v4"
 	"go4.org/netipx"
 )
 
@@ -150,22 +148,12 @@ func (i *ipamer) DeletePrefix(ctx context.Context, id uint) (*Prefix, error) {
 
 func (i *ipamer) AcquireChildPrefix(ctx context.Context, parentID uint, length uint8) (*Prefix, error) {
 	namespace := namespaceFromContext(ctx)
-	var prefix *Prefix
-	return prefix, retryOnOptimisticLock(func() error {
-		var err error
-		prefix, err = i.acquireChildPrefixInternalByParentID(ctx, namespace, parentID, "", int(length))
-		return err
-	})
+	return i.acquireChildPrefixInternalByParentID(ctx, namespace, parentID, "", int(length))
 }
 
 func (i *ipamer) AcquireSpecificChildPrefix(ctx context.Context, parentID uint, childCidr string) (*Prefix, error) {
 	namespace := namespaceFromContext(ctx)
-	var prefix *Prefix
-	return prefix, retryOnOptimisticLock(func() error {
-		var err error
-		prefix, err = i.acquireChildPrefixInternalByParentID(ctx, namespace, parentID, childCidr, 0)
-		return err
-	})
+	return i.acquireChildPrefixInternalByParentID(ctx, namespace, parentID, childCidr, 0)
 }
 
 func (i *ipamer) acquireAllocatedChildPrefixes(ctx context.Context, parentID uint) (Prefixes, error) {
@@ -375,9 +363,7 @@ func (i *ipamer) acquireChildPrefixInternalByParentID(ctx context.Context, names
 
 func (i *ipamer) ReleaseChildPrefix(ctx context.Context, child *Prefix) error {
 	namespace := namespaceFromContext(ctx)
-	return retryOnOptimisticLock(func() error {
-		return i.releaseChildPrefixInternal(ctx, namespace, child)
-	})
+	return i.releaseChildPrefixInternal(ctx, namespace, child)
 }
 
 // releaseChildPrefixInternal will mark this child Prefix as available again.
@@ -431,12 +417,7 @@ func (i *ipamer) PrefixFrom(ctx context.Context, cidr string) *Prefix {
 }
 
 func (i *ipamer) AcquireSpecificIP(ctx context.Context, cidrID uint, specificIP string) (*IPStorage, error) {
-	var ip *IPStorage
-	return ip, retryOnOptimisticLock(func() error {
-		var err error
-		ip, err = i.acquireSpecificIPInternal(ctx, cidrID, specificIP)
-		return err
-	})
+	return i.acquireSpecificIPInternal(ctx, cidrID, specificIP)
 }
 
 // acquireSpecificIPInternal will acquire given IP and store it to DB, if already in use, return nil.
@@ -512,9 +493,7 @@ func (i *ipamer) ReleaseIP(ctx context.Context, ip *IPStorage) (*Prefix, error) 
 
 func (i *ipamer) ReleaseIPFromPrefix(ctx context.Context, prefixCidr, ip string) error {
 	namespace := namespaceFromContext(ctx)
-	return retryOnOptimisticLock(func() error {
-		return i.releaseIPFromPrefixInternal(ctx, namespace, prefixCidr, ip)
-	})
+	return i.releaseIPFromPrefixInternal(ctx, namespace, prefixCidr, ip)
 }
 
 // releaseIPFromPrefixInternal will release the given IP for later usage.
@@ -660,21 +639,6 @@ func (p *Prefix) Usage() Usage {
 	return Usage{
 		AvailableIPs: p.availableips(),
 	}
-}
-
-// retries the given function if the reported error is an OptimisticLockError
-// with ten attempts and jitter delay ~100ms
-// returns only error of last failed attempt
-func retryOnOptimisticLock(retryableFunc retry.RetryableFunc) error {
-
-	return retry.Do(
-		retryableFunc,
-		retry.RetryIf(func(err error) bool {
-			return errors.Is(err, ErrOptimisticLockError)
-		}),
-		retry.Attempts(10),
-		retry.DelayType(retry.CombineDelay(retry.BackOffDelay, retry.RandomDelay)),
-		retry.LastErrorOnly(true))
 }
 
 func namespaceFromContext(ctx context.Context) string {

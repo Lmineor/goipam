@@ -42,7 +42,7 @@ func (g *gormImpl) CreatePrefix(ctx context.Context, prefix Prefix) (Prefix, err
 	prefix.Version = int64(0)
 
 	if prefix.Namespace != "" && prefix.Namespace != namespace {
-		return Prefix{}, fmt.Errorf("prefix namespace inconsistent with context")
+		return Prefix{}, ErrNamespaceInconsistent
 	}
 	prefix.Namespace = namespace
 	err := g.db.Create(&prefix).Error

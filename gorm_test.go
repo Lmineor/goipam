@@ -217,7 +217,7 @@ func Test_AcquirePrefixIPv4(t *testing.T) {
 	}
 	ipamer := NewWithStorage(&g)
 
-	const parentCidr = "1.0.0.0/16"
+	const parentCidr = "2.1.0.0/16"
 	parent, err := ipamer.NewPrefix(ctx, parentCidr)
 	require.NoError(t, err)
 	for i := 0; i < 4; i++ {
@@ -286,7 +286,7 @@ func releasePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint
 func acquirePrefix(t *testing.T, ctx context.Context, g *gormImpl, parentID uint) {
 	require.NotNil(t, g)
 	ipamer := NewWithStorage(g)
-	childPrefix, err := ipamer.AcquireChildPrefix(ctx, parentID, 128)
+	childPrefix, err := ipamer.AcquireChildPrefix(ctx, parentID, 24)
 	require.NoError(t, err)
 	fmt.Println(childPrefix.Cidr)
 }

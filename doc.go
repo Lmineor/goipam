@@ -20,7 +20,7 @@ Example usage:
 		ctx := context.Background()
 		namespace := "namespace1"
 		db := getBackend()
-		gormImpl := goipam.NewGormImpl(db, 50)
+		gormImpl := goipam.NewGormStorage(db, 50)
 		ipam := goipam.NewWithStorage(gormImpl)
 
 		err := ipam.CreateNamespace(ctx, namespace)

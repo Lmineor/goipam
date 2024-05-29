@@ -16,10 +16,10 @@ type Ipamer interface {
 	// NewPrefix creates a new Prefix from a string notation.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	NewPrefix(ctx context.Context, cidr string) (*Prefix, error)
-	// DeletePrefix delete a Prefix from a prefix id(uint).
+	// DeletePrefix delete a Prefix from a prefix cidr.
 	// If the Prefix is not found an NotFoundError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	DeletePrefix(ctx context.Context, id uint) (*Prefix, error)
+	DeletePrefix(ctx context.Context, cidr string) (*Prefix, error)
 	// AcquireChildPrefix will return a Prefix with a smaller length from the given parent prefix(id).
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	AcquireChildPrefix(ctx context.Context, parentID uint, length uint8) (*Prefix, error)
@@ -29,9 +29,9 @@ type Ipamer interface {
 	// ReleaseChildPrefix will mark this child Prefix as available again.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	ReleaseChildPrefix(ctx context.Context, child *Prefix) error
-	// PrefixFrom will return a known Prefix.
+	// GetPrefixByCidr will return a known Prefix.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	PrefixFrom(ctx context.Context, cidr string) *Prefix
+	GetPrefixByCidr(ctx context.Context, cidr string) *Prefix
 	// AcquireSpecificIP will acquire given IP and mark this IP as used, if already in use, return nil.
 	// If specificIP is empty, the next free IP is returned.
 	// If there is no free IP an NoIPAvailableError is returned.
@@ -48,12 +48,9 @@ type Ipamer interface {
 	// If the Prefix or the IP is not found an NotFoundError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	ReleaseIPFromPrefix(ctx context.Context, prefixCidr, ip string) error
-	// Dump all stored prefixes as json formatted string
+	// ListAllPrefix all stored prefixes as json formatted string
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	Dump(ctx context.Context) (Prefixes, error)
-	// Load a previously created json formatted dump, deletes all prefixes before loading.
-	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	Load(ctx context.Context, dump string) error
+	ListAllPrefix(ctx context.Context) (Prefixes, error)
 	// ReadAllPrefixCidrs retrieves all existing Prefix CIDRs from the underlying storage.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
 	ReadAllPrefixCidrs(ctx context.Context) ([]string, error)
@@ -68,6 +65,10 @@ type Ipamer interface {
 	// Any namespace provided in the context is ignored for this operation.
 	// It not idempotent, so attempts to delete a namespace which does not exist will return an error.
 	DeleteNamespace(ctx context.Context, namespace string) error
+	// AllocatedIPs list all allocated IPS of prefix
+	// Any namespace provided in the context is ignored for this operation.
+	// It not idempotent, so attempts to delete a namespace which does not exist will return an error.
+	AllocatedIPs(ctx context.Context, prefix Prefix) ([]IPStorage, error)
 }
 
 type ipamer struct {

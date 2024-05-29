@@ -72,7 +72,7 @@ package ipam
 //	if err != nil {
 //		panic(err)
 //	}
-//	prefix = ipamer.PrefixFrom(ctx, prefix.Cidr)
+//	prefix = ipamer.GetPrefixByCidr(ctx, prefix.Cidr)
 //	fmt.Printf("Super Prefix  : %s\n", prefix)
 //	fmt.Printf("Child Prefix 1: %s\n", cp1)
 //	fmt.Printf("Child Prefix 2: %s\n", cp2)

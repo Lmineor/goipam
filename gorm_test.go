@@ -196,13 +196,13 @@ func Test_AcquirePrefixIPv4(t *testing.T) {
 		err := g.CreateNamespace(ctx, namespace)
 		require.NoError(t, err)
 	}
-	ipamer := NewWithStorage(&g)
+	ipamer := NewWithStorage(g)
 
 	const parentCidr = "2.1.0.0/16"
 	parent, err := ipamer.NewPrefix(ctx, parentCidr)
 	require.NoError(t, err)
 	for i := 0; i < 4; i++ {
-		acquirePrefix(t, ctx, &g, parent.ID)
+		acquirePrefix(t, ctx, g, parent.ID)
 	}
 }
 
@@ -218,13 +218,13 @@ func Test_AcquirePrefixIPv6(t *testing.T) {
 		err := g.CreateNamespace(ctx, namespace)
 		require.NoError(t, err)
 	}
-	ipamer := NewWithStorage(&g)
+	ipamer := NewWithStorage(g)
 
 	const parentCidr = "1::0/64"
 	parent, err := ipamer.NewPrefix(ctx, parentCidr)
 	require.NoError(t, err)
 	for i := 0; i < 1000; i++ {
-		acquirePrefix(t, ctx, &g, parent.ID)
+		acquirePrefix(t, ctx, g, parent.ID)
 	}
 }
 
@@ -240,13 +240,13 @@ func TestIpamer_ReleaseChildPrefix(t *testing.T) {
 		err := g.CreateNamespace(ctx, namespace)
 		require.NoError(t, err)
 	}
-	ipamer := NewWithStorage(&g)
+	ipamer := NewWithStorage(g)
 
 	const parentCidr = "1::0/64"
 	parent, err := ipamer.NewPrefix(ctx, parentCidr)
 	require.NoError(t, err)
 	for i := 0; i < 1000; i++ {
-		releasePrefix(t, ctx, &g, parent.ID)
+		releasePrefix(t, ctx, g, parent.ID)
 	}
 }
 func releasePrefix(t *testing.T, ctx context.Context, g *gormStorage, parentID uint) {
@@ -277,7 +277,7 @@ func Test_AcquireIP(t *testing.T) {
 		err := g.CreateNamespace(ctx, namespace)
 		require.NoError(t, err)
 	}
-	ipamer := NewWithStorage(&g)
+	ipamer := NewWithStorage(g)
 	const parentCidr = "2001:db8:85a3::/124"
 	parent, err := ipamer.NewPrefix(ctx, parentCidr)
 	require.NoError(t, err)
@@ -299,6 +299,12 @@ func Test_AcquireIP(t *testing.T) {
 		ip, err := ipamer.AcquireIP(ctx, parent.ID)
 		require.NoError(t, err)
 		fmt.Println(ip.IP)
+	}
+
+	{
+		ips, err := ipamer.AllocatedIPs(ctx, *parent)
+		require.NoError(t, err)
+		fmt.Println(ips)
 	}
 	//{
 	//	// Create a namespace with a name that is too long

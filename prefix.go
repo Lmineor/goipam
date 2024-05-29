@@ -18,12 +18,9 @@ type Prefix struct {
 	ID        uint   `gorm:"primarykey"`
 	Cidr      string `gorm:"primaryKey;uniqueIndex:cidr_parent_cidr_namespace_idx"` // The Cidr of this prefix
 	ParentID  uint   `gorm:"column:parent_id;foreignKey:ID"`
-	Available bool   // for child prefix
 	IsParent  bool   // if this Prefix has child prefixes, this is set to true
-	// TODO remove this in the next release
-	childPrefixLength int    // the length of the child prefixes
-	Version           int64  // Version is used for optimistic locking
-	Namespace         string `gorm:"uniqueIndex:cidr_parent_cidr_namespace_idx"` // the namespace of this prefix
+	Version   int64  // Version is used for optimistic locking
+	Namespace string `gorm:"uniqueIndex:cidr_parent_cidr_namespace_idx"` // the namespace of this prefix
 }
 
 type Prefixes []Prefix
@@ -31,13 +28,12 @@ type Prefixes []Prefix
 // deepCopy to a new Prefix
 func (p Prefix) deepCopy() *Prefix {
 	return &Prefix{
-		ID:                p.ID,
-		Cidr:              p.Cidr,
-		ParentID:          p.ParentID,
-		IsParent:          p.IsParent,
-		childPrefixLength: p.childPrefixLength,
-		Version:           p.Version,
-		Namespace:         p.Namespace,
+		ID:        p.ID,
+		Cidr:      p.Cidr,
+		ParentID:  p.ParentID,
+		IsParent:  p.IsParent,
+		Version:   p.Version,
+		Namespace: p.Namespace,
 	}
 }
 
@@ -45,9 +41,6 @@ func (p Prefix) deepCopy() *Prefix {
 func (p *Prefix) GobEncode() ([]byte, error) {
 	w := new(bytes.Buffer)
 	encoder := gob.NewEncoder(w)
-	if err := encoder.Encode(p.childPrefixLength); err != nil {
-		return nil, err
-	}
 	if err := encoder.Encode(p.IsParent); err != nil {
 		return nil, err
 	}
@@ -67,9 +60,6 @@ func (p *Prefix) GobEncode() ([]byte, error) {
 func (p *Prefix) GobDecode(buf []byte) error {
 	r := bytes.NewBuffer(buf)
 	decoder := gob.NewDecoder(r)
-	if err := decoder.Decode(&p.childPrefixLength); err != nil {
-		return err
-	}
 	if err := decoder.Decode(&p.IsParent); err != nil {
 		return err
 	}
@@ -128,8 +118,8 @@ func (i *ipamer) NewPrefix(ctx context.Context, cidr string) (*Prefix, error) {
 	return &newPrefix, nil
 }
 
-func (i *ipamer) DeletePrefix(ctx context.Context, id uint) (*Prefix, error) {
-	p := i.PrefixFromByID(ctx, id)
+func (i *ipamer) DeletePrefix(ctx context.Context, cidr string) (*Prefix, error) {
+	p := i.GetPrefixByCidr(ctx, cidr)
 	if p == nil {
 		return nil, fmt.Errorf("%w: delete prefix:%s", ErrNotFound, p.Cidr)
 	}
@@ -167,7 +157,7 @@ func (i *ipamer) acquireAllocatedChildPrefixes(ctx context.Context, parentID uin
 func (i *ipamer) acquireChildPrefixInternalByParentID(ctx context.Context, namespace string, parentID uint, childCidr string, length int) (*Prefix, error) {
 	specificChildRequest := childCidr != ""
 	var childPrefix netip.Prefix
-	parent := i.PrefixFromByID(ctx, parentID)
+	parent := i.GetPrefixByID(ctx, parentID)
 	if parent == nil {
 		return nil, fmt.Errorf("unable to find prefix for cidr:%d", parentID)
 	}
@@ -195,9 +185,6 @@ func (i *ipamer) acquireChildPrefixInternalByParentID(ctx context.Context, names
 
 	storedAllChildPrefixes, _ := i.acquireAllocatedChildPrefixes(ctx, parentID)
 	for _, stored := range storedAllChildPrefixes {
-		if stored.Available {
-			continue
-		}
 		cpipprefix, err := netip.ParsePrefix(stored.Cidr)
 		if err != nil {
 			return nil, err
@@ -240,9 +227,8 @@ func (i *ipamer) acquireChildPrefixInternalByParentID(ctx context.Context, names
 	}
 
 	child := &Prefix{
-		Cidr:      cp.String(),
-		ParentID:  parentID,
-		Available: false,
+		Cidr:     cp.String(),
+		ParentID: parentID,
 	}
 
 	parent.IsParent = true
@@ -263,104 +249,6 @@ func (i *ipamer) acquireChildPrefixInternalByParentID(ctx context.Context, names
 	return &created, nil
 }
 
-// acquireChildPrefixInternal will return a Prefix with a smaller length from the given Prefix.
-//func (i *ipamer) acquireChildPrefixInternal(ctx context.Context, namespace, parentCidr, childCidr string, length int) (*Prefix, error) {
-//	specificChildRequest := childCidr != ""
-//	var childPrefix netip.Prefix
-//	parent := i.PrefixFrom(ctx, parentCidr)
-//	if parent == nil {
-//		return nil, fmt.Errorf("unable to find prefix for cidr:%s", parentCidr)
-//	}
-//	ipPrefix, err := netip.ParsePrefix(parent.Cidr)
-//	if err != nil {
-//		return nil, err
-//	}
-//	if specificChildRequest {
-//		childPrefix, err = netip.ParsePrefix(childCidr)
-//		if err != nil {
-//			return nil, err
-//		}
-//		length = childPrefix.Bits()
-//	}
-//	if ipPrefix.Bits() >= length {
-//		return nil, fmt.Errorf("given length:%d must be greater than prefix length:%d", length, ipPrefix.Bits())
-//	}
-//	allocatedIPS, _ := i.storage.AllocatedIPS(ctx, *parent)
-//	if len(allocatedIPS) > 0 {
-//		return nil, fmt.Errorf("prefix %s has ips, acquire child prefix not possible", parent.Cidr)
-//	}
-//
-//	var ipsetBuilder netipx.IPSetBuilder
-//	ipsetBuilder.AddPrefix(ipPrefix)
-//	for cp, available := range parent.availableChildPrefixes {
-//		if available {
-//			continue
-//		}
-//		cpipprefix, err := netip.ParsePrefix(cp)
-//		if err != nil {
-//			return nil, err
-//		}
-//		ipsetBuilder.RemovePrefix(cpipprefix)
-//	}
-//
-//	ipset, err := ipsetBuilder.IPSet()
-//	if err != nil {
-//		return nil, fmt.Errorf("error constructing ipset:%w", err)
-//	}
-//
-//	var cp netip.Prefix
-//	if !specificChildRequest {
-//		var ok bool
-//		cp, _, ok = ipset.RemoveFreePrefix(uint8(length))
-//		if !ok {
-//			pfxs := ipset.Prefixes()
-//			if len(pfxs) == 0 {
-//				return nil, fmt.Errorf("no prefix found in %s with length:%d", parentCidr, length)
-//			}
-//
-//			var availablePrefixes []string
-//			for _, p := range pfxs {
-//				availablePrefixes = append(availablePrefixes, p.String())
-//			}
-//			adj := "are"
-//			if len(availablePrefixes) == 1 {
-//				adj = "is"
-//			}
-//
-//			return nil, fmt.Errorf("no prefix found in %s with length:%d, but %s %s available", parentCidr, length, strings.Join(availablePrefixes, ","), adj)
-//		}
-//	} else {
-//		if ok := ipset.ContainsPrefix(childPrefix); !ok {
-//			// Parent prefix does not contain specific child prefix
-//			return nil, fmt.Errorf("specific prefix %s is not available in prefix %s", childCidr, parentCidr)
-//		}
-//		cp = childPrefix
-//	}
-//
-//	child := &Prefix{
-//		Cidr:       cp.String(),
-//		ParentCidr: parentCidr,
-//	}
-//
-//	parent.availableChildPrefixes[child.Cidr] = false
-//	parent.IsParent = true
-//
-//	_, err = i.storage.UpdatePrefix(ctx, *parent)
-//	if err != nil {
-//		return nil, fmt.Errorf("unable to update parent prefix:%v error:%w", parent, err)
-//	}
-//	child, err = i.newPrefix(child.Cidr, parentCidr, namespace)
-//	if err != nil {
-//		return nil, fmt.Errorf("unable to persist created child:%w", err)
-//	}
-//	_, err = i.storage.CreatePrefix(ctx, *child)
-//	if err != nil {
-//		return nil, fmt.Errorf("unable to update parent prefix:%v error:%w", child, err)
-//	}
-//
-//	return child, nil
-//}
-
 func (i *ipamer) ReleaseChildPrefix(ctx context.Context, child *Prefix) error {
 	namespace := namespaceFromContext(ctx)
 	return i.releaseChildPrefixInternal(ctx, namespace, child)
@@ -368,7 +256,7 @@ func (i *ipamer) ReleaseChildPrefix(ctx context.Context, child *Prefix) error {
 
 // releaseChildPrefixInternal will mark this child Prefix as available again.
 func (i *ipamer) releaseChildPrefixInternal(ctx context.Context, _ string, child *Prefix) error {
-	parent := i.PrefixFromByID(ctx, child.ParentID)
+	parent := i.GetPrefixByID(ctx, child.ParentID)
 
 	if parent == nil {
 		return fmt.Errorf("prefix %s is not child prefix", child.Cidr)
@@ -377,7 +265,7 @@ func (i *ipamer) releaseChildPrefixInternal(ctx context.Context, _ string, child
 	if len(ips) > 0 {
 		return fmt.Errorf("prefix %s has ips, deletion not possible", child.Cidr)
 	}
-	_, err := i.DeletePrefix(ctx, child.ID)
+	_, err := i.DeletePrefix(ctx, child.Cidr)
 	if err != nil {
 		return fmt.Errorf("unable to release prefix %v:%w", child, err)
 	}
@@ -396,7 +284,7 @@ func (i *ipamer) releaseChildPrefixInternal(ctx context.Context, _ string, child
 	return nil
 }
 
-func (i *ipamer) PrefixFromByID(ctx context.Context, id uint) *Prefix {
+func (i *ipamer) GetPrefixByID(ctx context.Context, id uint) *Prefix {
 	prefix, err := i.storage.ReadPrefixByID(ctx, id)
 	if err != nil {
 		return nil
@@ -404,7 +292,7 @@ func (i *ipamer) PrefixFromByID(ctx context.Context, id uint) *Prefix {
 	return &prefix
 }
 
-func (i *ipamer) PrefixFrom(ctx context.Context, cidr string) *Prefix {
+func (i *ipamer) GetPrefixByCidr(ctx context.Context, cidr string) *Prefix {
 	ipprefix, err := netip.ParsePrefix(cidr)
 	if err != nil {
 		return nil
@@ -425,7 +313,7 @@ func (i *ipamer) AcquireSpecificIP(ctx context.Context, cidrID uint, specificIP 
 // If there is no free IP an NoIPAvailableError is returned.
 // If the Prefix is not found an NotFoundError is returned.
 func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, cidrID uint, specificIP string) (*IPStorage, error) {
-	parent := i.PrefixFromByID(ctx, cidrID)
+	parent := i.GetPrefixByID(ctx, cidrID)
 	if parent == nil {
 		return nil, fmt.Errorf("%w: unable to find prefix for cidr id :%d", ErrNotFound, cidrID)
 	}
@@ -487,7 +375,7 @@ func (i *ipamer) AcquireIP(ctx context.Context, cidrID uint) (*IPStorage, error)
 
 func (i *ipamer) ReleaseIP(ctx context.Context, ip *IPStorage) (*Prefix, error) {
 	err := i.ReleaseIPFromPrefix(ctx, ip.ParentPrefix, ip.IP)
-	prefix := i.PrefixFrom(ctx, ip.ParentPrefix)
+	prefix := i.GetPrefixByCidr(ctx, ip.ParentPrefix)
 	return prefix, err
 }
 
@@ -498,7 +386,7 @@ func (i *ipamer) ReleaseIPFromPrefix(ctx context.Context, prefixCidr, ip string)
 
 // releaseIPFromPrefixInternal will release the given IP for later usage.
 func (i *ipamer) releaseIPFromPrefixInternal(ctx context.Context, namespace, prefixCidr, ip string) error {
-	prefix := i.PrefixFrom(ctx, prefixCidr)
+	prefix := i.GetPrefixByCidr(ctx, prefixCidr)
 	if prefix == nil {
 		return fmt.Errorf("%w: unable to find prefix for cidr:%s", ErrNotFound, prefixCidr)
 	}
@@ -559,14 +447,9 @@ func (i *ipamer) newPrefix(cidr string, parentID uint, namespace string) (*Prefi
 	return p, nil
 }
 
-func (i *ipamer) Dump(ctx context.Context) (Prefixes, error) {
+func (i *ipamer) ListAllPrefix(ctx context.Context) (Prefixes, error) {
 	// FIXME must dump all namespaces
 	return i.storage.ReadAllPrefixes(ctx)
-}
-
-func (i *ipamer) Load(ctx context.Context, dump string) error {
-	// FIXME must load all namespaces
-	return nil
 }
 
 // ReadAllPrefixCidrs retrieves all existing Prefix CIDRs from the underlying storage
@@ -601,6 +484,9 @@ func (i *ipamer) DeleteNamespace(ctx context.Context, namespace string) error {
 	return i.storage.DeleteNamespace(ctx, namespace)
 }
 
+func (i *ipamer) AllocatedIPs(ctx context.Context, prefix Prefix) ([]IPStorage, error) {
+	return i.storage.AllocatedIPS(ctx, prefix)
+}
 func (p *Prefix) String() string {
 	return p.Cidr
 }

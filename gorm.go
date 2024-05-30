@@ -8,7 +8,18 @@ import (
 
 // NewGormStorage return a implement for gorm
 func NewGormStorage(db *gorm.DB, namespaceLen int) *gormStorage {
+	if db == nil {
+		return nil
+	}
+
 	return &gormStorage{db: db, maxIdLength: namespaceLen}
+}
+
+func RegisterTables(db *gorm.DB) error {
+	if db == nil {
+		return ErrDbNil
+	}
+	db.AutoMigrate(&Namespace{}, &Prefix{}, &IPStorage{})
 }
 
 type gormStorage struct {
@@ -161,6 +172,9 @@ func (g *gormStorage) Name() string {
 }
 
 func (g *gormStorage) CreateNamespace(_ context.Context, namespace string) error {
+	if g.checkNamespaceExists(namespace) {
+		return ErrNamespaceExist
+	}
 	if len(namespace) > g.maxIdLength {
 		return ErrNameTooLong
 	}

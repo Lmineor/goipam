@@ -121,7 +121,7 @@ func (i *ipamer) NewPrefix(ctx context.Context, cidr string) (*Prefix, error) {
 func (i *ipamer) DeletePrefix(ctx context.Context, cidr string) (*Prefix, error) {
 	p := i.GetPrefixByCidr(ctx, cidr)
 	if p == nil {
-		return nil, fmt.Errorf("%w: delete prefix:%s", ErrNotFound, p.Cidr)
+		return nil, fmt.Errorf("%w: delete prefix:%s", ErrNotFound, cidr)
 	}
 
 	ips, _ := i.storage.AllocatedIPS(ctx, *p)

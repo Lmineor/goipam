@@ -304,18 +304,18 @@ func (i *ipamer) GetPrefixByCidr(ctx context.Context, cidr string) *Prefix {
 	return &prefix
 }
 
-func (i *ipamer) AcquireSpecificIP(ctx context.Context, cidrID uint, specificIP string) (*IPStorage, error) {
-	return i.acquireSpecificIPInternal(ctx, cidrID, specificIP)
+func (i *ipamer) AcquireSpecificIP(ctx context.Context, cidr string, specificIP string) (*IPStorage, error) {
+	return i.acquireSpecificIPInternal(ctx, cidr, specificIP)
 }
 
 // acquireSpecificIPInternal will acquire given IP and store it to DB, if already in use, return nil.
 // If specificIP is empty, the next free IP is returned.
 // If there is no free IP an NoIPAvailableError is returned.
 // If the Prefix is not found an NotFoundError is returned.
-func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, cidrID uint, specificIP string) (*IPStorage, error) {
-	parent := i.GetPrefixByID(ctx, cidrID)
+func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, cidr string, specificIP string) (*IPStorage, error) {
+	parent := i.GetPrefixByCidr(ctx, cidr)
 	if parent == nil {
-		return nil, fmt.Errorf("%w: unable to find prefix for cidr id :%d", ErrNotFound, cidrID)
+		return nil, fmt.Errorf("%w: unable to find prefix for cidr :%s", ErrNotFound, cidr)
 	}
 	if parent.IsParent {
 		return nil, fmt.Errorf("prefix %s has childprefixes, acquire ip not possible", parent.Cidr)
@@ -369,8 +369,8 @@ func (i *ipamer) acquireSpecificIPInternal(ctx context.Context, cidrID uint, spe
 	return nil, fmt.Errorf("%w: no more ips in prefix: %s left", ErrNoIPAvailable, parent.Cidr)
 }
 
-func (i *ipamer) AcquireIP(ctx context.Context, cidrID uint) (*IPStorage, error) {
-	return i.AcquireSpecificIP(ctx, cidrID, "")
+func (i *ipamer) AcquireIP(ctx context.Context, cidr string) (*IPStorage, error) {
+	return i.AcquireSpecificIP(ctx, cidr, "")
 }
 
 func (i *ipamer) ReleaseIP(ctx context.Context, ip *IPStorage) (*Prefix, error) {
@@ -394,7 +394,7 @@ func (i *ipamer) releaseIPFromPrefixInternal(ctx context.Context, namespace, pre
 	if !allocated {
 		return fmt.Errorf("%w: unable to release ip:%s because it is not allocated in prefix:%s", ErrNotFound, ip, prefixCidr)
 	}
-	err := i.storage.DeleteIPAddress(ctx, *prefix, namespace)
+	err := i.storage.DeleteIPAddress(ctx, *prefix, ip)
 	if err != nil {
 		return fmt.Errorf("unable to release ip %v:%w", ip, err)
 	}

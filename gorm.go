@@ -19,7 +19,7 @@ func RegisterTables(db *gorm.DB) error {
 	if db == nil {
 		return ErrDbNil
 	}
-	db.AutoMigrate(&Namespace{}, &Prefix{}, &IPStorage{})
+	return db.AutoMigrate(&Namespace{}, &Prefix{}, &IPStorage{})
 }
 
 type gormStorage struct {

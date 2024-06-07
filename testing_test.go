@@ -20,18 +20,18 @@ func getBackend() *gorm.DB {
 }
 
 // RegisterTables register table to mysql if not exist
-func RegisterTables(db *gorm.DB) {
-	db.Exec("DROP TABLE namespaces")
-	db.Exec("DROP TABLE prefixes")
-	err := db.AutoMigrate(
-		&IPStorage{},
-		&Namespace{},
-		&Prefix{},
-	)
-	if err != nil {
-		fmt.Printf("register table failed %s\n", err)
-	}
-}
+//func RegisterTables(db *gorm.DB) {
+//	db.Exec("DROP TABLE namespaces")
+//	db.Exec("DROP TABLE prefixes")
+//	err := db.AutoMigrate(
+//		&IPStorage{},
+//		&Namespace{},
+//		&Prefix{},
+//	)
+//	if err != nil {
+//		fmt.Printf("register table failed %s\n", err)
+//	}
+//}
 
 func gormMysql(dbName string) *gorm.DB {
 	username := "root"

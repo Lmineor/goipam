@@ -284,19 +284,19 @@ func Test_AcquireIP(t *testing.T) {
 	require.NotNil(t, db)
 	{
 		// Create a namespace with special characters in name
-		ip, err := ipamer.AcquireIP(ctx, parent.ID)
+		ip, err := ipamer.AcquireIP(ctx, parent.Cidr)
 		require.NoError(t, err)
 		fmt.Println(ip.IP)
 	}
 	{
 		// Create a long namespace name
-		ip, err := ipamer.AcquireIP(ctx, parent.ID)
+		ip, err := ipamer.AcquireIP(ctx, parent.Cidr)
 		require.NoError(t, err)
 		fmt.Println(ip.IP)
 	}
 	{
 		// Create a namespace with a name that is too long
-		ip, err := ipamer.AcquireIP(ctx, parent.ID)
+		ip, err := ipamer.AcquireIP(ctx, parent.Cidr)
 		require.NoError(t, err)
 		fmt.Println(ip.IP)
 	}
@@ -312,6 +312,43 @@ func Test_AcquireIP(t *testing.T) {
 	//	require.ErrorIs(t, err, ErrAlreadyAllocated)
 	//	fmt.Println(ip.IP)
 	//}
+}
+
+func Test_ReleaseIP(t *testing.T) {
+	ctx := context.Background()
+	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
+	ctx = NewContextWithNamespace(ctx, namespace)
+	db := getBackend()
+	g := NewGormStorage(db, 50)
+
+	require.NotNil(t, db)
+	if !g.checkNamespaceExists(namespace) {
+		err := g.CreateNamespace(ctx, namespace)
+		require.NoError(t, err)
+	}
+	ipamer := NewWithStorage(g)
+	const parentCidr = "10.2.3.0/16"
+	parent, err := ipamer.NewPrefix(ctx, parentCidr)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	{
+		// Create a namespace with special characters in name
+		allocatedIP, err := ipamer.AcquireIP(ctx, parentCidr)
+		require.NoError(t, err)
+		fmt.Println(allocatedIP.IP)
+
+		_, err = ipamer.ReleaseIP(ctx, allocatedIP)
+		require.NoError(t, err)
+		ips, err := ipamer.AllocatedIPs(ctx, *parent)
+		require.NoError(t, err)
+
+		for _, ip := range ips {
+			if ip.IP == allocatedIP.IP {
+				t.Fatalf("release ip failed %s", allocatedIP.IP)
+			}
+		}
+	}
+
 }
 
 //func Test_ConcurrentAcquireIP(t *testing.T) {

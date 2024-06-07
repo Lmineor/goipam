@@ -36,10 +36,10 @@ type Ipamer interface {
 	// If specificIP is empty, the next free IP is returned.
 	// If there is no free IP an NoIPAvailableError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	AcquireSpecificIP(ctx context.Context, cidrID uint, specificIP string) (*IPStorage, error)
+	AcquireSpecificIP(ctx context.Context, cidr string, specificIP string) (*IPStorage, error)
 	// AcquireIP will return the next unused IP from this Prefix.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.
-	AcquireIP(ctx context.Context, cidrID uint) (*IPStorage, error)
+	AcquireIP(ctx context.Context, cidr string) (*IPStorage, error)
 	// ReleaseIP will release the given IP for later usage and returns the updated Prefix.
 	// If the IP is not found an NotFoundError is returned.
 	// This operation is scoped to the root namespace unless a different namespace is provided in the context.

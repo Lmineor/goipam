@@ -20,4 +20,7 @@ var (
 
 	//ErrDbNil is returned when db is nil
 	ErrDbNil = errors.New("db is nil")
+
+	//ErrPrefixHasIP is returned when prefix has allocated ip
+	ErrPrefixHasIP = errors.New("prefix has allocated ip")
 )

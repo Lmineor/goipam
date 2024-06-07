@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func Test_gorm_prefixExists(t *testing.T) {
@@ -349,6 +350,35 @@ func Test_ReleaseIP(t *testing.T) {
 		}
 	}
 
+}
+
+func Test_DeleteNamespace(t *testing.T) {
+	ctx := context.Background()
+	namespace := "%u6c^qi$u%tSqhQTcjR!zZHNvMB$3XJd"
+	ctx = NewContextWithNamespace(ctx, namespace)
+	db := getBackend()
+	g := NewGormStorage(db, 50)
+
+	require.NotNil(t, db)
+	if !g.checkNamespaceExists(namespace) {
+		err := g.CreateNamespace(ctx, namespace)
+		require.NoError(t, err)
+	}
+	ipamer := NewWithStorage(g)
+	const parentCidr = "30.2.3.0/16"
+	_, err := ipamer.NewPrefix(ctx, parentCidr)
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	{
+		// Create a namespace with special characters in name
+		allocatedIP, err := ipamer.AcquireIP(ctx, parentCidr)
+		require.NoError(t, err)
+		fmt.Println(allocatedIP.IP)
+	}
+
+	time.Sleep(20 * time.Second)
+
+	g.DeleteNamespace(ctx, namespace)
 }
 
 //func Test_ConcurrentAcquireIP(t *testing.T) {

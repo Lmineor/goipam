@@ -473,6 +473,7 @@ func (i *ipamer) ListNamespaces(ctx context.Context) ([]string, error) {
 }
 
 // DeleteNamespace deletes a namespace.
+// Warning delete namespace will delete all ip and prefix which belongs it.
 func (i *ipamer) DeleteNamespace(ctx context.Context, namespace string) error {
 	prefixes, err := i.storage.ReadAllPrefixes(ctx)
 	if err != nil {

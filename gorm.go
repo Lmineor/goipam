@@ -161,7 +161,14 @@ func (g *gormStorage) DeletePrefix(ctx context.Context, prefix Prefix) (Prefix, 
 	if !g.checkNamespaceExists(namespace) {
 		return Prefix{}, ErrNamespaceDoesNotExist
 	}
-	err := g.db.Delete(&Prefix{}, "cidr = ? AND namespace = ?", prefix.Cidr, namespace).Error
+	ips, err := g.AllocatedIPS(ctx, prefix)
+	if err != nil {
+		return Prefix{}, err
+	}
+	if len(ips) > 0 {
+		return Prefix{}, ErrPrefixHasIP
+	}
+	err = g.db.Delete(&Prefix{}, "cidr = ? AND namespace = ?", prefix.Cidr, namespace).Error
 	if err != nil {
 		return Prefix{}, fmt.Errorf("unable delete prefix: %w", err)
 	}
@@ -196,6 +203,9 @@ func (g *gormStorage) DeleteNamespace(_ context.Context, namespace string) error
 	}
 	return g.db.Transaction(func(tx *gorm.DB) error {
 		// delete prefix first
+		if err := tx.Delete(&IPStorage{}, "namespace = ?", namespace).Error; err != nil {
+			return err
+		}
 		if err := tx.Delete(&Prefix{}, "namespace = ?", namespace).Error; err != nil {
 			return err
 		}
